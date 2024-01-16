@@ -89,6 +89,7 @@ struct data {
 static struct map map[100];
 
 void playerInitialize(struct Player *player);
+void objectsInitialize(struct Object object[]);
 
 int main(int argc, char *argv[]) {
 
@@ -100,6 +101,8 @@ int main(int argc, char *argv[]) {
 
 
     playerInitialize(&player);
+    objectsInitialize(objects);
+
 
     return 0;
 
@@ -126,6 +129,101 @@ void playerInitialize(struct Player *player) {
     player->map = INITIAL_PLAYER_POSITION_MAP;
     player->object = NO_OBJECT;
     player->treasure = NO_TREASURE;
+
+}
+
+
+void objectsInitialize(struct Object object[]){
+    strcpy(object[0].name, "Archery");
+    strcpy(object[1].name, "Sword");
+    strcpy(object[2].name, "Axe");
+
+    object[0].power = 3;
+    object[1].power = 5;
+    object[2].power = 8;
+}
+
+void pathInitialize() {
+
+    /*Room 1*/
+    map[0].north = 3;
+    map[0].east = 4;
+    map[0].south = 2;
+
+    /*Room 2*/
+    map[1].north = 1;
+    map[1].east = 5;
+
+    /*Room 3*/
+    map[2].south = 1;
+    map[2].east = 8;
+
+    /*Room 4*/
+    map[3].north = 8;
+    map[3].east = 6;
+    map[3].south = 5;
+    map[3].west = 1;
+    map[3].object = 0; /*Archery Weapon*/
+
+    /*Room 5*/
+    map[4].north = 4;
+    map[4].west = 2;
+
+    /*Room 6*/
+    map[5].north = 9;
+    map[5].up = 11;
+    map[5].west = 4;
+
+    /*Room 7*/
+    map[6].south = 8;
+    map[6].east = 10;
+
+    /*Room 8*/
+    map[7].north = 7;
+    map[7].east = 9;
+    map[7].south = 4;
+    map[7].west = 3;
+
+    /*Room 9*/
+    map[8].north = 10;
+    map[8].east = 14;
+    map[8].south = 6;
+    map[8].west = 8;
+
+    /*Room 10*/
+    map[9].south = 9;
+    map[9].west = 7;
+
+    /*Room 11*/
+    map[10].north = 12;
+    map[10].down = 6;
+    map[10].south = 13;
+    map[10].east = 15;
+
+    /*Room 12*/
+    map[11].south = 11;
+
+    /*Room 13*/
+    map[12].north = 11;
+    map[12].east = 16;
+
+    /*Room 14*/
+    map[13].east = 9;
+    map[13].object = 2; /*Weapon Axe*/
+
+    /*Room 15*/
+    map[14].west = 11;
+    map[14].north = 16;
+
+    /*Room 16*/
+    map[15].west = 13;
+    map[15].north = 15;
+
+}
+
+void setInfoCells(){
+
+    strcpy(map[0].info,"\n");
 
 }
 
