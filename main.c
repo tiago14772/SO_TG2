@@ -11,6 +11,7 @@
 #define NO_OBJECT (-1)
 #define NO_TREASURE (-1)
 #define MAX_MAP_DESCRIPTION 200
+#define NO_WAY (-1)
 #define MAX_map$ 1000
 #define N_WEAPONS 5
 #define N_OF_ENEMIES 3
@@ -89,9 +90,12 @@ struct data {
 static struct map map[100];
 
 void playerInitialize(struct Player *player);
+void mapInitialize();
+void monsterInitialize(struct Monster monster[]);
 void objectsInitialize(struct Object object[]);
+void processPlayerChoice();
 
-int main(int argc, char *argv[]) {
+        int main(int argc, char *argv[]) {
 
     char **input = getInput(argv);
 
@@ -101,12 +105,14 @@ int main(int argc, char *argv[]) {
 
 
     playerInitialize(&player);
+    mapInitialize();
     objectsInitialize(objects);
+    monsterInitialize(monster);
+    processPlayerChoice();
+
 
 
     return 0;
-
-
 }
 
 
@@ -132,8 +138,15 @@ void playerInitialize(struct Player *player) {
 
 }
 
-
-void objectsInitialize(struct Object object[]){
+/**
+ * @brief Initializes the array of objects in the game.
+ *
+ * This function sets up the initial values for the objects in the game.
+ * It assigns names and power values to each object in the 'object' array.
+ *
+ * @param object An array of Object structures to be initialized.
+ */
+void objectsInitialize(struct Object object[]) {
     strcpy(object[0].name, "Archery");
     strcpy(object[1].name, "Sword");
     strcpy(object[2].name, "Axe");
@@ -143,6 +156,13 @@ void objectsInitialize(struct Object object[]){
     object[2].power = 8;
 }
 
+
+/**
+ * @brief Initializes paths and features for each room in the game map.
+ *
+ * This function sets up paths and additional features for each room in the game map.
+ * It defines the connections between rooms (north, south, east, west, up, down) and assigns objects and treasures to specific rooms.
+ */
 void pathInitialize() {
 
     /*Room 1*/
@@ -183,6 +203,7 @@ void pathInitialize() {
     map[7].east = 9;
     map[7].south = 4;
     map[7].west = 3;
+    map[3].object = 1; /*Sword Weapon*/
 
     /*Room 9*/
     map[8].north = 10;
@@ -209,7 +230,7 @@ void pathInitialize() {
 
     /*Room 14*/
     map[13].east = 9;
-    map[13].object = 2; /*Weapon Axe*/
+    map[13].object = 2; /*Axe Weapon*/
 
     /*Room 15*/
     map[14].west = 11;
@@ -218,13 +239,149 @@ void pathInitialize() {
     /*Room 16*/
     map[15].west = 13;
     map[15].north = 15;
+    map[15].treasure = 1;
 
 }
 
-void setInfoCells(){
+/**
+ * @brief Set additional information about room connections.
+ *
+ * This function sets information about possible directions a player can go from each room.
+ * The information is stored in the 'info' field of each room in the 'map' array.
+ * It provides details about available directions for navigation.
+ */
+void setInfoCells() {
 
-    strcpy(map[0].info,"\n");
+    /*Room 1*/
+    strcpy(map[0].info, "You can go to North, South and East\n");
+    /*Room 2*/
+    strcpy(map[1].info, "You can go to North and East\n");
+    /*Room 3*/
+    strcpy(map[2].info, "You can go to South and East\n");
+    /*Room 4*/
+    strcpy(map[3].info, "You can go to North, East, South and West\n");
+    /*Room 5*/
+    strcpy(map[4].info, "You can go to North and West\n");
+    /*Room 6*/
+    strcpy(map[5].info, "You can go to North, Up and West\n");
+    /*Room 7*/
+    strcpy(map[6].info, "You can go to South and East\n");
+    /*Room 8*/
+    strcpy(map[7].info, "You can go to North, East, South and West\n");
+    /*Room 9*/
+    strcpy(map[8].info, "You can go to North, East, South and West\n");
+    /*Room 10*/
+    strcpy(map[9].info, "You can go to South, East and West\n");
+    /*Room 11*/
+    strcpy(map[10].info, "You can go to North, South, East and Down\n");
+    /*Room 12*/
+    strcpy(map[11].info, "You can go to South\n");
+    /*Room 13*/
+    strcpy(map[12].info, "You can go to North and East\n");
+    /*Room 14*/
+    strcpy(map[13].info, "You can go to East\n");
+    /*Room 15*/
+    strcpy(map[14].info, "You can go to West\n");
+    /*Room 16*/
+    strcpy(map[14].info, "You can go to West and North\n");
 
+}
+
+/**
+ * @brief Initializes the game map.
+ *
+ * This function initializes the game map represented by the 'map' array.
+ * It sets up the initial values for directions, treasures, objects, and room descriptions.
+ * Calls auxiliary functions to configure paths and provide information about room connections.
+ */
+void mapInitialize() {
+
+    for (int i = 0; i < 16; ++i) {
+        map[i].north = NO_WAY;
+        map[i].south = NO_WAY;
+        map[i].west = NO_WAY;
+        map[i].east = NO_WAY;
+        map[i].up = NO_WAY;
+        map[i].down = NO_WAY;
+        map[i].treasure = NO_TREASURE;
+        map[i].object = NO_OBJECT;
+
+        char desc [25];
+        sprintf(desc,"You are in Room %d\n",i+1);
+        strcpy(map[i].description,desc);
+    }
+    pathInitialize();
+    setInfoCells();
+}
+
+
+/**
+ * @brief Initializes the array of monsters (enemies) in the game.
+ *
+ * This function sets up the initial values for the monsters in the game.
+ * It assigns names, energy, power, and map locations to each monster in the 'monster' array.
+ *
+ * @param monster An array of Monster structures to be initialized.
+ */
+void monsterInitialize(struct Monster monster[]){
+
+    /*Predator*/
+    strcpy(monster[0].name,"Predator");
+    monster[0].energy = 50;
+    monster[0].power = 5;
+    monster[0].map = 5;
+
+    /*Demogorgon*/
+    strcpy(monster[1].name,"Demogorgon");
+    monster[1].energy = 100;
+    monster[1].power = 15;
+    monster[1].map = 15;
+}
+
+
+/**
+ * @brief Changes the current room based on the player's chosen direction.
+ *
+ * This function processes the player's choice of direction (north, south, east, west, up, down)
+ * and updates the current room accordingly. It also handles printing messages about the movement.
+ *
+ * @param direction The player's chosen direction.
+ */
+void changeRoom(const char *direction) {
+    int *directionPtr;
+
+    if (strcmp(direction, "n") == 0) directionPtr = &map[CURRENT_PLACE].north;
+    else if (strcmp(direction, "s") == 0) directionPtr = &map[CURRENT_PLACE].south;
+    else if (strcmp(direction, "e") == 0) directionPtr = &map[CURRENT_PLACE].east;
+    else if (strcmp(direction, "w") == 0) directionPtr = &map[CURRENT_PLACE].west;
+    else if (strcmp(direction, "u") == 0) directionPtr = &map[CURRENT_PLACE].up;
+    else if (strcmp(direction, "d") == 0) directionPtr = &map[CURRENT_PLACE].down;
+    else {
+        printf("Invalid Choice!\n");
+        return;
+    }
+
+    if (*directionPtr != -1) {
+        printf("Moving to next room...\n");
+        CURRENT_PLACE = *directionPtr - 1;
+        sleep(2);
+        printf("\n%s", map[CURRENT_PLACE].description);
+        printf("\n%s\n", map[CURRENT_PLACE].info);
+    } else {
+        printf("This path is blocked!\n");
+    }
+}
+
+/**
+ * @brief Processes the player's choice of direction.
+ *
+ * This function prompts the player to choose a direction and then calls the changeRoom function
+ * to handle the actual room change based on the chosen direction.
+ */
+void processPlayerChoice() {
+    printf("Choose a direction (n, s, e, w, u, d): ");
+    scanf("%s", op);
+    changeRoom(op);
 }
 
 
