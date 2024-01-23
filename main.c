@@ -82,7 +82,7 @@ struct map {
 
 struct data {
     struct Player player;
-    struct Monster monster[2];
+    struct Monster monster[1];
     struct Object objects[3];
 };
 
@@ -90,16 +90,33 @@ struct data {
 static struct map map[100];
 
 void playerInitialize(struct Player *player);
-void mapInitialize();
-void monsterInitialize(struct Monster monster[]);
-void objectsInitialize(struct Object object[]);
-void processPlayerChoice();
 
-        int main(int argc, char *argv[]) {
+void mapInitialize();
+
+void monsterInitialize(struct Monster monster[]);
+
+void objectsInitialize(struct Object object[]);
+
+void processPlayerChoice(struct data *d);
+
+void checkRoom(struct data *d);
+
+void searchTreasure(struct data *d);
+
+void searchWeapon(struct data *d);
+
+void playerResume(struct data *d);
+
+void *threadPlayer(void *ptr);
+
+void *threadMonster(void *ptr);
+
+
+int main(int argc, char *argv[]) {
 
     char **input = getInput(argv);
 
-    struct Monster monster[2];
+    struct Monster monster[1];
     struct Player player;
     struct Object objects[3];
 
@@ -108,8 +125,28 @@ void processPlayerChoice();
     mapInitialize();
     objectsInitialize(objects);
     monsterInitialize(monster);
-    processPlayerChoice();
 
+
+    struct data d;
+
+    d.player = player;
+
+    d.monster[0] = monster[0];
+
+    d.objects[0] = objects[0];
+    d.objects[1] = objects[1];
+    d.objects[2] = objects[2];
+
+    pthread_t playerThread, playerMonster;
+
+    strcpy(op, "");
+
+
+    pthread_create(&playerThread, NULL, threadPlayer, (void *) &d);
+    pthread_create(&playerMonster, NULL, threadMonster, (void *) &d);
+
+    pthread_join(playerThread, NULL);
+    pthread_join(playerMonster, NULL);
 
 
     return 0;
@@ -126,8 +163,6 @@ void processPlayerChoice();
  */
 
 void playerInitialize(struct Player *player) {
-
-
     printf("Welcome!! Insert your Player name: ");
     scanf("%s", player->name);
 
@@ -135,7 +170,6 @@ void playerInitialize(struct Player *player) {
     player->map = INITIAL_PLAYER_POSITION_MAP;
     player->object = NO_OBJECT;
     player->treasure = NO_TREASURE;
-
 }
 
 /**
@@ -203,7 +237,7 @@ void pathInitialize() {
     map[7].east = 9;
     map[7].south = 4;
     map[7].west = 3;
-    map[3].object = 1; /*Sword Weapon*/
+    map[7].object = 1; /*Sword Weapon*/
 
     /*Room 9*/
     map[8].north = 10;
@@ -229,12 +263,12 @@ void pathInitialize() {
     map[12].east = 16;
 
     /*Room 14*/
-    map[13].east = 9;
+    map[13].west = 9;
     map[13].object = 2; /*Axe Weapon*/
 
     /*Room 15*/
     map[14].west = 11;
-    map[14].north = 16;
+    map[14].south = 16;
 
     /*Room 16*/
     map[15].west = 13;
@@ -279,11 +313,11 @@ void setInfoCells() {
     /*Room 13*/
     strcpy(map[12].info, "You can go to North and East\n");
     /*Room 14*/
-    strcpy(map[13].info, "You can go to East\n");
+    strcpy(map[13].info, "You can go to West\n");
     /*Room 15*/
-    strcpy(map[14].info, "You can go to West\n");
+    strcpy(map[14].info, "You can go to South and West\n");
     /*Room 16*/
-    strcpy(map[14].info, "You can go to West and North\n");
+    strcpy(map[15].info, "You can go to West and North\n");
 
 }
 
@@ -295,7 +329,6 @@ void setInfoCells() {
  * Calls auxiliary functions to configure paths and provide information about room connections.
  */
 void mapInitialize() {
-
     for (int i = 0; i < 16; ++i) {
         map[i].north = NO_WAY;
         map[i].south = NO_WAY;
@@ -306,9 +339,9 @@ void mapInitialize() {
         map[i].treasure = NO_TREASURE;
         map[i].object = NO_OBJECT;
 
-        char desc [25];
-        sprintf(desc,"You are in Room %d\n",i+1);
-        strcpy(map[i].description,desc);
+        char desc[25];
+        sprintf(desc, "You are in Room %d\n", i + 1);
+        strcpy(map[i].description, desc);
     }
     pathInitialize();
     setInfoCells();
@@ -323,19 +356,12 @@ void mapInitialize() {
  *
  * @param monster An array of Monster structures to be initialized.
  */
-void monsterInitialize(struct Monster monster[]){
-
+void monsterInitialize(struct Monster monster[]) {
     /*Predator*/
-    strcpy(monster[0].name,"Predator");
+    strcpy(monster[0].name, "Predator");
     monster[0].energy = 50;
     monster[0].power = 5;
     monster[0].map = 5;
-
-    /*Demogorgon*/
-    strcpy(monster[1].name,"Demogorgon");
-    monster[1].energy = 100;
-    monster[1].power = 15;
-    monster[1].map = 15;
 }
 
 
@@ -347,7 +373,7 @@ void monsterInitialize(struct Monster monster[]){
  *
  * @param direction The player's chosen direction.
  */
-void changeRoom(const char *direction) {
+void changeRoom(const char *direction, struct data *d) {
     int *directionPtr;
 
     if (strcmp(direction, "n") == 0) directionPtr = &map[CURRENT_PLACE].north;
@@ -362,15 +388,64 @@ void changeRoom(const char *direction) {
     }
 
     if (*directionPtr != -1) {
-        printf("Moving to next room...\n");
+        printf("Moving to next room...\n\n");
         CURRENT_PLACE = *directionPtr - 1;
+        d->player.map = CURRENT_PLACE;
         sleep(2);
-        printf("\n%s", map[CURRENT_PLACE].description);
-        printf("\n%s\n", map[CURRENT_PLACE].info);
+
+
     } else {
         printf("This path is blocked!\n");
     }
 }
+
+void checkRoom(struct data *d) {
+    searchTreasure(d);
+    searchWeapon(d);
+}
+
+void searchTreasure(struct data *d) {
+    char op[2];
+    printf("Do you want to search for a treasure? yes(y), no(n)\n");
+    scanf("%1s", op);
+
+    if (strcmp(op, "y") == 0) {
+        printf("Searching.....\n");
+        sleep(2);
+        if (map[CURRENT_PLACE].treasure == 1) {
+            d->player.treasure = 1;
+            printf("You are carrying a treasure!!!!\n");
+        } else {
+            printf("No treasure in the room!!!\n");
+        }
+    }
+}
+
+void searchWeapon(struct data *d) {
+    char op[2];
+    printf("Do you want to search for a Weapon? yes(y), no(n)\n");
+    scanf("%1s", op);
+
+    if (strcmp(op, "y") == 0) {
+        printf("Searching.....\n");
+        sleep(2);
+
+        if (map[CURRENT_PLACE].object >= 0 && map[CURRENT_PLACE].object < 3) {
+            d->player.object = map[CURRENT_PLACE].object;
+            printf("Weapon found!!\nYou carrying a %s\n", d->objects[d->player.object].name);
+        } else {
+            printf("No weapon in the room!!!\n\n");
+        }
+    }
+}
+
+void playerResume(struct data *d) {
+    printf("PLAYER RESUME\n");
+    printf("\tName: %s\n", d->player.name);
+    printf("\tWeapon: %s\n", d->objects[d->player.object].name);
+    printf("\tEnergy: %d\n", d->player.energy);
+}
+
 
 /**
  * @brief Processes the player's choice of direction.
@@ -378,10 +453,49 @@ void changeRoom(const char *direction) {
  * This function prompts the player to choose a direction and then calls the changeRoom function
  * to handle the actual room change based on the chosen direction.
  */
-void processPlayerChoice() {
+void processPlayerChoice(struct data *d) {
+    printf("\n%s", map[CURRENT_PLACE].description);
+    checkRoom(d);
+    playerResume(d);
+    printf("\n%s\n", map[CURRENT_PLACE].info);
     printf("Choose a direction (n, s, e, w, u, d): ");
     scanf("%s", op);
-    changeRoom(op);
+    changeRoom(op, d);
+}
+
+
+void *threadPlayer(void *ptr) {
+    struct data *d = (struct data *) ptr;
+
+    while (strcmp(op, "q") != 0) {
+        printf("Player position %d",d->player.map);
+        /*int monsterPosition = d->monster[0].map;
+        int playerPosition = d->player.map;
+
+        printf("%d\n", monsterPosition);
+        printf("%d\n", playerPosition);
+        if (monsterPosition == playerPosition)*/
+
+        processPlayerChoice(d);
+    }
+    return NULL;
+}
+
+void *threadMonster(void *ptr) {
+    struct data *d = (struct data *) ptr;
+    int mPos;
+
+    while (strcmp(op, "q") != 0) {
+        mPos = rand() % 9 + 8;
+        d->monster[0].map = mPos;
+        printf("Monster position %d\n",d->monster[0].map);
+
+        if (d->player.map == d->monster[0].map) printf("UAAAAAAHHHHHH WE GONNA FIGHT!!!");
+
+        sleep(4);
+    }
+
+    return NULL;
 }
 
 
