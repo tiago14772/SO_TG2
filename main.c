@@ -14,7 +14,7 @@
 #define NO_WAY (-1)
 
 static int CURRENT_PLACE = 0;
-static char op[10];
+char op[10];
 sem_t sem;
 
 /*
@@ -81,6 +81,7 @@ void checkRoom(struct Data *d);
 void playerResume(struct Data *d);
 void *threadPlayer(void *ptr);
 void *threadMonster(void *ptr);
+void menu();
 
 int main(int argc, char *argv[]) {
 
@@ -88,6 +89,8 @@ int main(int argc, char *argv[]) {
     struct Player player;
     struct Object objects[3];
     struct Data d;
+
+    menu();
 
     playerInitialize(&player);
     mapInitialize();
@@ -115,6 +118,14 @@ int main(int argc, char *argv[]) {
     return 0;
 }
 
+void menu() {
+    printf("#####################################################\n"
+           "#                      WELCOME                      #\n"
+           "#            You must find the treasure             #\n"
+           "#     Be careful, there are a monster out there     #\n"
+           "#####################################################\n\n");
+}
+
 /**
  * @brief Initializes a player structure with user input.
  *
@@ -124,14 +135,21 @@ int main(int argc, char *argv[]) {
  * @param player A pointer to the Player structure to be initialized.
  */
 void playerInitialize(struct Player *player) {
-    printf("Welcome!! Insert your Player name: ");
+    printf("Insert your Player name: ");
     scanf("%s", player->name);
-    printf("%s, you can move in different directions (n - North, s - South, e - east, w - West, u - Up, d - Down).\n", player->name);
-    printf("For player information press 'i', before go to another room.\n");
+    printf("You can move in different directions:\n"
+           "North(n), South(s), East(e), West(w), Up(u), Down(d)\n");
+    printf("To search for the treasure or a weapon press 'f'\n"
+           "For player information press 'i'\n"
+           "To quit the game press 'q'\n");
     player->energy = INITIAL_PLAYER_ENERGY;
     player->map = INITIAL_PLAYER_POSITION_MAP;
     player->object = NO_OBJECT;
     player->treasure = NO_TREASURE;
+
+    printf("Are you ready?");
+    scanf("%s", op);
+    printf("%s, Good Luck!\n", player->name);
 }
 
 /**
@@ -315,8 +333,8 @@ void mapInitialize() {
         map[i].treasure = NO_TREASURE;
         map[i].object = NO_OBJECT;
 
-        char desc[30];
-        sprintf(desc, "##### You are in Room %d #####", i + 1);
+        char desc[50];
+        sprintf(desc, "################# You are in Room %d #################", i + 1);
         strcpy(map[i].description, desc);
     }
     pathInitialize();
@@ -378,6 +396,9 @@ void processPlayerChoice(struct Data *d) {
     if (strcmp(op, "f") == 0) {
         checkRoom(d);
         return;
+    }
+    if (strcmp(op, "q") == 0) {
+        exit(0);
     }
     sleep(1);
     if (d->player.map == d->monster[0].map){
