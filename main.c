@@ -15,7 +15,7 @@
 
 static int CURRENT_PLACE = 0;
 static char op[10];
-sem_t semaforo;
+sem_t sem;
 
 /*
  * Struct that represents the objects loaded by the players
@@ -84,23 +84,20 @@ void *threadMonster(void *ptr);
 
 int main(int argc, char *argv[]) {
 
-    sem_init(&semaforo, 1, 1);
-
     struct Monster monster[1];
     struct Player player;
     struct Object objects[3];
+    struct Data d;
 
     playerInitialize(&player);
     mapInitialize();
     objectsInitialize(objects);
     monsterInitialize(monster);
 
-    struct Data d;
+    sem_init(&sem, 1, 1);
 
     d.player = player;
-
     d.monster[0] = monster[0];
-
     d.objects[0] = objects[0];
     d.objects[1] = objects[1];
     d.objects[2] = objects[2];
@@ -150,7 +147,7 @@ void monsterInitialize(struct Monster monster[]) {
     strcpy(monster[0].name, "Predator");
     monster[0].energy = 50;
     monster[0].power = 5;
-    monster[0].map = 8;
+    monster[0].map = 9;
 }
 
 /**
@@ -266,37 +263,37 @@ void pathInitialize() {
  */
 void setInfoCells() {
     /*Room 1*/
-    strcpy(map[0].info, "You can go to North, South and East\n");
+    strcpy(map[0].info, "You can go to North, South and East: ");
     /*Room 2*/
-    strcpy(map[1].info, "You can go to North and East\n");
+    strcpy(map[1].info, "You can go to North and East: ");
     /*Room 3*/
-    strcpy(map[2].info, "You can go to South and East\n");
+    strcpy(map[2].info, "You can go to South and East: ");
     /*Room 4*/
-    strcpy(map[3].info, "You can go to North, East, South and West\n");
+    strcpy(map[3].info, "You can go to North, East, South and West: ");
     /*Room 5*/
-    strcpy(map[4].info, "You can go to North and West\n");
+    strcpy(map[4].info, "You can go to North and West: ");
     /*Room 6*/
-    strcpy(map[5].info, "You can go to North, Up and West\n");
+    strcpy(map[5].info, "You can go to North, Up and West: ");
     /*Room 7*/
-    strcpy(map[6].info, "You can go to South and East\n");
+    strcpy(map[6].info, "You can go to South and East: ");
     /*Room 8*/
-    strcpy(map[7].info, "You can go to North, East, South and West\n");
+    strcpy(map[7].info, "You can go to North, East, South and West: ");
     /*Room 9*/
-    strcpy(map[8].info, "You can go to North, East, South and West\n");
+    strcpy(map[8].info, "You can go to North, East, South and West: ");
     /*Room 10*/
-    strcpy(map[9].info, "You can go to South, East and West\n");
+    strcpy(map[9].info, "You can go to South, East and West: ");
     /*Room 11*/
-    strcpy(map[10].info, "You can go to North, South, East and Down\n");
+    strcpy(map[10].info, "You can go to North, South, East and Down: ");
     /*Room 12*/
-    strcpy(map[11].info, "You can go to South\n");
+    strcpy(map[11].info, "You can go to South: ");
     /*Room 13*/
-    strcpy(map[12].info, "You can go to North and East\n");
+    strcpy(map[12].info, "You can go to North and East: ");
     /*Room 14*/
-    strcpy(map[13].info, "You can go to West\n");
+    strcpy(map[13].info, "You can go to West: ");
     /*Room 15*/
-    strcpy(map[14].info, "You can go to South and West\n");
+    strcpy(map[14].info, "You can go to South and West: ");
     /*Room 16*/
-    strcpy(map[15].info, "You can go to West and North\n");
+    strcpy(map[15].info, "You can go to West and North: ");
 
 }
 
@@ -318,8 +315,8 @@ void mapInitialize() {
         map[i].treasure = NO_TREASURE;
         map[i].object = NO_OBJECT;
 
-        char desc[25];
-        sprintf(desc, "You are in Room %d", i + 1);
+        char desc[30];
+        sprintf(desc, "##### You are in Room %d #####", i + 1);
         strcpy(map[i].description, desc);
     }
     pathInitialize();
@@ -355,7 +352,8 @@ void changeRoom(const char *direction, struct Data *d) {
         sleep(2);
 
     } else {
-        printf("This path is blocked!\n");
+        printf("This path is blocked!");
+        return;
     }
 }
 
@@ -366,42 +364,57 @@ void changeRoom(const char *direction, struct Data *d) {
  * to handle the actual room change based on the chosen direction.
  */
 void processPlayerChoice(struct Data *d) {
+    sem_wait(&sem);
     printf("\n%s", map[CURRENT_PLACE].description);
-    checkRoom(d);
+    printf("\nPlayer info(i), search Room(f)\n");
+
     printf("%s", map[CURRENT_PLACE].info);
     scanf("%s", op);
-    if(strcmp(op, "i") == 0){
+    sem_post(&sem);
+    if (strcmp(op, "i") == 0) {
         playerResume(d);
-        printf("\n%s", map[CURRENT_PLACE].info);
-        scanf("%s", op);
+        return;
     }
+    if (strcmp(op, "f") == 0) {
+        checkRoom(d);
+        return;
+    }
+    sleep(1);
+    if (d->player.map == d->monster[0].map){
+        return;
+    }
+    sem_wait(&sem);
     changeRoom(op, d);
+    sem_post(&sem);
 }
 
 void checkRoom(struct Data *d) {
-    printf("\nDo you want to search for a treasure? yes(y), no(n)\n");
-    scanf("%1s", op);
+    sem_wait(&sem);
+    printf("Searching.....\n");
+    sleep(2);
 
-    if (strcmp(op, "y") == 0) {
-        printf("Searching.....\n");
-        sleep(2);
-
-        if (map[CURRENT_PLACE].treasure == 1) {
-            d->player.treasure = 1;
-            printf("A treasure was found!!!! Congratulations, you WIN.\n");
-            exit(0);
-        }
-        if (map[CURRENT_PLACE].object >= 0 && map[CURRENT_PLACE].object < 3) {
+    if (map[CURRENT_PLACE].treasure == 1) {
+        d->player.treasure = 1;
+        printf("A treasure was found!!!! Congratulations, you WIN.\n");
+        exit(0);
+    }
+    if (map[CURRENT_PLACE].object >= 0 && map[CURRENT_PLACE].object < 3) {
+        printf("You find a %s\n", d->objects[map[CURRENT_PLACE].object].name);
+        printf("Pick the new weapon? (y): ");
+        scanf("%s", op);
+        if(strcmp(op, "y") == 0) {
             d->player.object = map[CURRENT_PLACE].object;
-            printf("Weapon found!!\nYou are carrying a %s\n", d->objects[d->player.object].name);
-        }
-        else {
-            printf("The room is empty!!!\n");
+            printf("You are carrying a %s\n", d->objects[d->player.object].name);
         }
     }
+    else {
+        printf("The room is empty!!!\n");
+    }
+    sem_post(&sem);
 }
 
 void playerResume(struct Data *d) {
+    sem_wait(&sem);
     printf("PLAYER RESUME:\n");
     printf("\tName: %s\n", d->player.name);
     printf("\tEnergy: %d\n", d->player.energy);
@@ -413,19 +426,17 @@ void playerResume(struct Data *d) {
         printf("\tWeapon: None\n");
         printf("\tPower: %d", 1);
     }
+    sem_post(&sem);
 }
 
 void *threadPlayer(void *ptr) {
     struct Data *d = (struct Data *) ptr;
     while (strcmp(op, "q") != 0) {
-        sem_wait(&semaforo);
-        printf("\nPlayer position %d",d->player.map + 1);
-        printf(" Monster position %d",d->monster[0].map + 1);
-
+        sem_wait(&sem);
         if (d->player.map == d->monster[0].map){
             fightMonster(d);
         }
-        sem_post(&semaforo);
+        sem_post(&sem);
         processPlayerChoice(d);
     }
     return NULL;
@@ -436,7 +447,6 @@ void *threadMonster(void *ptr) {
     int direction;
     int *checkDirection;
     while (strcmp(op, "q") != 0) {
-
         direction = rand() % 6 + 1;
 
         if (direction == 1) checkDirection = &map[d->monster[0].map].north;
@@ -448,14 +458,16 @@ void *threadMonster(void *ptr) {
 
         if (*checkDirection != -1) {
             d->monster[0].map = *checkDirection - 1;
-            sleep(30);
+            sleep(2);
         }
-        sem_wait(&semaforo);
         if (d->player.map == d->monster[0].map){
-            fightMonster(d);
+            sem_wait(&sem);
+            if (d->player.map == d->monster[0].map) {
+                fightMonster(d);
+            }
+            sem_post(&sem);
         }
-        sem_post(&semaforo);
-        sleep(30);
+        sleep(5);
     }
     return NULL;
 }
@@ -471,23 +483,25 @@ void fightMonster(struct Data *d) {
         playerPower = 1;
     }
 
-    printf("\nAtacar(a) ou fugir(f)?");
-    scanf("%1s", op);
+    printf("\nFugir? (y): ");
+    scanf("%s", op);
 
-    if(strcmp(op, "f") == 0){
+    if(strcmp(op, "y") == 0){
+        d->player.energy = d->player.energy - d->monster[0].power;
+        printf("Perdeu %d de energia!\n", d->monster[0].power);
         printf("%s", map[CURRENT_PLACE].info);
         scanf("%s", op);
         changeRoom(op, d);
         return;
     }
-    printf("UAAAAAAHHHHHH WE WILL FIGHT!!!");
+    printf("WE WILL FIGHT!!!\n");
     sleep(2);
     if(d->player.energy / d->monster[0].power <  d->monster[0].energy / playerPower){
-        printf("\nYou Lose");
+        printf("YOU LOSE");
         exit(0);
     }
     else{
-        printf("\nCongratulations!! You killed the monster.");
+        printf("Congratulations!! You killed the monster.");
         d->monster[0].energy = 50;
         d->monster[0].map = rand() % 6 + 10;
     }
